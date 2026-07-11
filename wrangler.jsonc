@@ -2,11 +2,21 @@
   "name": "notebook",
   "main": "worker/index.js",
   "compatibility_date": "2026-01-01",
-  "assets": { "not_found_handling": "single-page-application" },
-  "observability": {
-    "enabled": true
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
   },
-  "migrations": {
-    "dir": "migrations"
-  }
+  "observability": {
+    "enabled": false
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_migrations": [
+        "migrations/0000_create_notes.sql",
+        "migrations/0001_create_users_sessions.sql"
+      ]
+    }
+  ]
 }
