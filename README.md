@@ -75,9 +75,14 @@ Copy the returned `id` and add to `wrangler.jsonc`:
 npx wrangler deploy
 ```
 
-### 3. Set API_BASE (if needed)
+### 3. Configure environment variables
 
-If the Worker is deployed to a different domain, update `API_BASE` in `src/App.tsx:10` to point to the Worker URL.
+Set these via `wrangler.jsonc` `vars` or Cloudflare Dashboard → Workers → Settings → Variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_BASE` | `""` | Base URL for the API. Leave empty if the Worker serves both frontend and API on the same domain. Set to the Worker URL (e.g. `https://my-worker.example.com`) if the frontend is served from a different domain. |
+| `ALLOW_REGISTRATION` | `"true"` | Set to `"false"` to disable new user registration. Existing users can still log in. |
 
 ## Project Structure
 

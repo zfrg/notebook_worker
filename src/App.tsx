@@ -7,7 +7,14 @@ interface Note {
   createdAt: number;
 }
 
-const API_BASE = "";
+declare global {
+  interface Window {
+    __CONFIG__?: { API_BASE: string; ALLOW_REGISTRATION: boolean };
+  }
+}
+
+const API_BASE = window.__CONFIG__?.API_BASE ?? "";
+const ALLOW_REGISTRATION = window.__CONFIG__?.ALLOW_REGISTRATION ?? true;
 
 const NotebookApp = () => {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
@@ -132,12 +139,14 @@ const NotebookApp = () => {
           </button>
           <p className="text-center text-sm text-gray-500">
             {authMode === "login" ? (
-              <>
-                Don't have an account?{" "}
-                <button onClick={() => setAuthMode("register")} className="text-blue-500 hover:underline">
-                  Register
-                </button>
-              </>
+              ALLOW_REGISTRATION ? (
+                <>
+                  Don't have an account?{" "}
+                  <button onClick={() => setAuthMode("register")} className="text-blue-500 hover:underline">
+                    Register
+                  </button>
+                </>
+              ) : null
             ) : (
               <>
                 Already have an account?{" "}

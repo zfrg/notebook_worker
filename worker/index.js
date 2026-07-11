@@ -142,13 +142,31 @@ async function handleRequest(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
+  const ALLOW_REGISTRATION = env.ALLOW_REGISTRATION !== "false";
+  const API_BASE = env.API_BASE || "";
+
   if (method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Inject config into HTML for SPA
+  if (method === "GET" && url.pathname !== "/api/config" && !url.pathname.startsWith("/api/")) {
+    const response = await env.ASSETS.fetch(request);
+    if (response.headers.get("Content-Type")?.includes("text/html")) {
+      const body = await response.text();
+      const configScript = `<script>window.__CONFIG__ = ${JSON.stringify({ API_BASE, ALLOW_REGISTRATION: env.ALLOW_REGISTRATION !== "false" })}</script>`;
+      const injected = body.replace("</head>", `${configScript}</head>`);
+      return new Response(injected, response);
+    }
+    return response;
   }
 
   try {
     // Auth routes
     if (url.pathname === "/api/auth/register" && method === "POST") {
+      if (env.ALLOW_REGISTRATION === "false") {
+        return json({ error: "Registration is disabled" }, 403);
+      }
       const { username, password } = await request.json();
       if (!username || !password) return json({ error: "Username and password required" }, 400);
       if (password.length < 4) return json({ error: "Password must be at least 4 characters" }, 400);
