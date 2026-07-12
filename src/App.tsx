@@ -25,6 +25,7 @@ const NotebookApp = () => {
   const [authError, setAuthError] = useState("");
 
   const [notes, setNotes] = useState<Note[]>([]);
+  const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContent, setEditingContent] = useState("");
@@ -52,13 +53,29 @@ const NotebookApp = () => {
   }, [token, username]);
 
   useEffect(() => {
+    if (dirtyIds.size === 0) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    addEventListener("beforeunload", handler);
+    return () => removeEventListener("beforeunload", handler);
+  }, [dirtyIds]);
+
+  useEffect(() => {
     if (!token) return;
     apiFetch("/api/notes")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch");
         return res.json();
       })
-      .then((data) => setNotes(data))
+      .then((data) =>
+        setNotes((prev) => {
+          const serverIds = new Set(data.map((n: Note) => n.id));
+          const localOnly = prev.filter((n) => !serverIds.has(n.id));
+          return [...data, ...localOnly];
+        })
+      )
       .catch(() => {});
   }, [token]);
 
@@ -96,6 +113,7 @@ const NotebookApp = () => {
   };
 
   const handleLogout = () => {
+    if (dirtyIds.size > 0 && !confirm("You have unsaved changes. Log out anyway?")) return;
     if (token) {
       fetch(`${API_BASE}/api/auth/logout`, {
         method: "POST",
@@ -168,12 +186,16 @@ const NotebookApp = () => {
       content: "",
       createdAt: Date.now(),
     };
-    setNotes([...notes, newNote]);
+    setNotes((prev) => [...prev, newNote]);
+    setDirtyIds((prev) => new Set(prev).add(newNote.id));
     setSelectedNoteId(newNote.id);
   };
 
   const updateNoteLocally = (id: number, title: string, content: string) => {
+    const existing = notes.find((n) => n.id === id);
+    if (!existing || (existing.title === title && existing.content === content)) return;
     setNotes(notes.map((n) => (n.id === id ? { ...n, title, content } : n)));
+    setDirtyIds((prev) => new Set(prev).add(id));
   };
 
   const saveNote = async () => {
@@ -186,6 +208,11 @@ const NotebookApp = () => {
         body: JSON.stringify(updated),
       });
       if (!res.ok) throw new Error("Failed to save");
+      setDirtyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(updated.id);
+        return next;
+      });
     } catch (e) {
       console.error("Save failed", e);
     }
@@ -222,7 +249,10 @@ const NotebookApp = () => {
                 selectedNoteId === note.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
               }`}
             >
-              <h3 className="font-medium text-gray-800 truncate">{note.title}</h3>
+              <h3 className="font-medium text-gray-800 truncate">
+                {note.title}
+                {dirtyIds.has(note.id) && <span className="text-xs text-orange-500 ml-1 shrink-0">Unsaved</span>}
+              </h3>
               <p className="text-sm text-gray-500 truncate">{note.content}</p>
             </div>
           ))}

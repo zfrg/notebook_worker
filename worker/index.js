@@ -1,33 +1,33 @@
 const SALT = "notebook-salt-2026";
 
 // ---- Auto-migration: runs on first D1 access ----
-const MIGRATIONS = [
-  `CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    createdAt INTEGER NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    createdAt INTEGER NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    userId INTEGER NOT NULL,
-    createdAt INTEGER NOT NULL,
-    FOREIGN KEY (userId) REFERENCES users(id)
-  )`,
-];
-
 let dbInitialized = false;
 
 async function ensureDB(db) {
   if (dbInitialized) return;
-  for (const sql of MIGRATIONS) {
-    await db.prepare(sql).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY,
+    userId INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+  )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+  )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId INTEGER NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id)
+  )`).run();
+  try {
+    await db.prepare("ALTER TABLE notes ADD COLUMN userId INTEGER NOT NULL DEFAULT 0").run();
+  } catch (e) {
+    // Column already exists on existing databases, ignore
   }
   dbInitialized = true;
 }
@@ -105,7 +105,9 @@ async function registerKV(kv, username, pw) {
   if (existing) throw new Error("Username already exists");
   await kv.put(`user:${username}`, JSON.stringify({ password: pw, createdAt: Date.now() }));
   const token = generateToken();
-  await kv.put(`session:${token}`, JSON.stringify({ userId: username, createdAt: Date.now() }));
+  await kv.put(`session:${token}`, JSON.stringify({ userId: username, createdAt: Date.now() }), {
+    expirationTtl: 604800,
+  });
   return token;
 }
 
@@ -115,7 +117,9 @@ async function loginKV(kv, username, pw) {
   const user = JSON.parse(raw);
   if (user.password !== pw) throw new Error("Invalid username or password");
   const token = generateToken();
-  await kv.put(`session:${token}`, JSON.stringify({ userId: username, createdAt: Date.now() }));
+  await kv.put(`session:${token}`, JSON.stringify({ userId: username, createdAt: Date.now() }), {
+    expirationTtl: 604800,
+  });
   return token;
 }
 
@@ -125,47 +129,48 @@ async function logoutKV(kv, token) {
 
 // ---- D1 notes ----
 
-async function getAllNotesD1(db) {
+async function getAllNotesD1(db, userId) {
   const { results } = await db
-    .prepare("SELECT id, title, content, createdAt FROM notes ORDER BY createdAt DESC")
+    .prepare("SELECT id, title, content, createdAt FROM notes WHERE userId = ? ORDER BY createdAt DESC")
+    .bind(userId)
     .all();
   return results;
 }
 
-async function updateNoteD1(db, id, note) {
+async function updateNoteD1(db, userId, id, note) {
   await db
-    .prepare("INSERT OR REPLACE INTO notes (id, title, content, createdAt) VALUES (?, ?, ?, ?)")
-    .bind(id, note.title, note.content, note.createdAt || Date.now())
+    .prepare("INSERT OR REPLACE INTO notes (id, userId, title, content, createdAt) VALUES (?, ?, ?, ?, ?)")
+    .bind(id, userId, note.title, note.content, note.createdAt || Date.now())
     .run();
   return { ...note, id };
 }
 
-async function deleteNoteD1(db, id) {
-  await db.prepare("DELETE FROM notes WHERE id = ?").bind(id).run();
+async function deleteNoteD1(db, userId, id) {
+  await db.prepare("DELETE FROM notes WHERE id = ? AND userId = ?").bind(id, userId).run();
 }
 
 // ---- KV notes ----
 
-async function getAllNotesKV(kv) {
-  const raw = await kv.get("notes", "json");
+async function getAllNotesKV(kv, userId) {
+  const raw = await kv.get(`notes:${userId}`, "json");
   return Array.isArray(raw) ? raw : [];
 }
 
-async function updateNoteKV(kv, id, note) {
-  const notes = await getAllNotesKV(kv);
+async function updateNoteKV(kv, userId, id, note) {
+  const notes = await getAllNotesKV(kv, userId);
   const idx = notes.findIndex((n) => n.id === id);
   if (idx !== -1) {
     notes[idx] = { ...notes[idx], title: note.title, content: note.content };
   } else {
     notes.push({ id, title: note.title, content: note.content, createdAt: note.createdAt || Date.now() });
   }
-  await kv.put("notes", JSON.stringify(notes));
+  await kv.put(`notes:${userId}`, JSON.stringify(notes));
   return { ...note, id };
 }
 
-async function deleteNoteKV(kv, id) {
-  const notes = await getAllNotesKV(kv);
-  await kv.put("notes", JSON.stringify(notes.filter((n) => n.id !== id)));
+async function deleteNoteKV(kv, userId, id) {
+  const notes = await getAllNotesKV(kv, userId);
+  await kv.put(`notes:${userId}`, JSON.stringify(notes.filter((n) => n.id !== id)));
 }
 
 // ---- Request handler ----
@@ -230,7 +235,7 @@ async function handleRequest(request, env) {
     if (!userId) return json({ error: "Unauthorized" }, 401);
 
     if (url.pathname === "/api/notes" && method === "GET") {
-      const notes = env.DB ? await getAllNotesD1(env.DB) : await getAllNotesKV(env.KV);
+      const notes = env.DB ? await getAllNotesD1(env.DB, userId) : await getAllNotesKV(env.KV, userId);
       return json(notes);
     }
 
@@ -240,13 +245,13 @@ async function handleRequest(request, env) {
 
       if (method === "PUT") {
         const note = await request.json();
-        const updated = env.DB ? await updateNoteD1(env.DB, id, note) : await updateNoteKV(env.KV, id, note);
+        const updated = env.DB ? await updateNoteD1(env.DB, userId, id, note) : await updateNoteKV(env.KV, userId, id, note);
         return json(updated);
       }
 
       if (method === "DELETE") {
-        if (env.DB) await deleteNoteD1(env.DB, id);
-        else await deleteNoteKV(env.KV, id);
+        if (env.DB) await deleteNoteD1(env.DB, userId, id);
+        else await deleteNoteKV(env.KV, userId, id);
         return new Response(null, { status: 204, headers: corsHeaders });
       }
     }

@@ -10,10 +10,6 @@
   "observability": {
     "enabled": false
   },
-  "vars": {
-    "API_BASE": "",
-    "ALLOW_REGISTRATION": "true"
-  },
   "kv_namespaces": [
     {
       "binding": "KV"
