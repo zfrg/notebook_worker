@@ -13,5 +13,15 @@
   "vars": {
     "API_BASE": "",
     "ALLOW_REGISTRATION": "true"
-  }
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KV"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB"
+    }
+  ]
 }
