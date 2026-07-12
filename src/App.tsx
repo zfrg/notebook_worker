@@ -231,7 +231,9 @@ const NotebookApp = () => {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className={`w-full md:w-64 bg-white border-r border-gray-200 flex-col ${
+        selectedNote ? 'hidden' : 'flex'
+      } md:flex`}>
         <div className="p-4 border-b border-gray-200">
           <button
             onClick={addNote}
@@ -270,18 +272,28 @@ const NotebookApp = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex-col ${
+        selectedNote ? 'flex' : 'hidden'
+      } md:flex`}>
         {selectedNote ? (
           <>
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <input
-                type="text"
-                value={editingTitle}
-                onChange={(e) => setEditingTitle(e.target.value)}
-                onBlur={() => updateNoteLocally(selectedNote.id, editingTitle, editingContent)}
-                className="text-2xl font-bold text-gray-800 bg-transparent border-none outline-none flex-1"
-                placeholder="Note title"
-              />
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-2">
+              <div className="flex items-center flex-1 min-w-0">
+                <button
+                  onClick={() => setSelectedNoteId(null)}
+                  className="md:hidden mr-2 text-gray-500 hover:text-gray-700 shrink-0 text-lg leading-none"
+                >
+                  ←
+                </button>
+                <input
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => updateNoteLocally(selectedNote.id, editingTitle, editingContent)}
+                  className="text-2xl font-bold text-gray-800 bg-transparent border-none outline-none flex-1 min-w-0"
+                  placeholder="Note title"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <button onClick={saveNote} className="text-blue-500 hover:text-blue-700 transition-colors">
                   Save
