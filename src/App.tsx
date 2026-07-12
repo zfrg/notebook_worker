@@ -128,8 +128,8 @@ const NotebookApp = () => {
 
   if (!token) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="bg-white p-8 rounded-lg shadow-md w-80">
+      <div className="flex items-center justify-center h-dvh bg-gray-50 px-4 pb-[env(safe-area-inset-bottom)]">
+        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
           <h1 className="text-2xl font-bold text-center mb-6">Notebook</h1>
           <div className="mb-4">
             <input
@@ -249,15 +249,24 @@ const NotebookApp = () => {
             <div
               key={note.id}
               onClick={() => setSelectedNoteId(note.id)}
-              className={`p-4 cursor-pointer border-b border-gray-100 hover:bg-gray-100 transition-colors ${
+              className={`p-4 cursor-pointer border-b border-gray-100 hover:bg-gray-100 transition-colors flex items-center gap-2 ${
                 selectedNoteId === note.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
               }`}
             >
-              <h3 className="font-medium text-gray-800 truncate flex items-center gap-1">
-                <span className="truncate">{note.title}</span>
-                {dirtyIds.has(note.id) && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
-              </h3>
-              <p className="text-sm text-gray-500 truncate">{note.content}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 truncate flex items-center gap-1">
+                  <span className="truncate">{note.title}</span>
+                  {dirtyIds.has(note.id) && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
+                </h3>
+                <p className="text-sm text-gray-500 truncate">{note.content}</p>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}
+                className="shrink-0 text-gray-300 hover:text-red-500 transition-colors"
+                title="Delete"
+              >
+                🗑
+              </button>
             </div>
           ))}
           {notes.length === 0 && (
@@ -296,7 +305,7 @@ const NotebookApp = () => {
                   placeholder="Note title"
                 />
               </div>
-              <div className="flex items-center gap-2 justify-end shrink-0">
+              <div className="flex items-center gap-2 justify-end shrink-0 md:ml-auto">
                 <button onClick={saveNote} className="text-blue-500 hover:text-blue-700 transition-colors">
                   Save
                 </button>
