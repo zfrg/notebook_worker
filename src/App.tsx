@@ -249,9 +249,9 @@ const NotebookApp = () => {
                 selectedNoteId === note.id ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
               }`}
             >
-              <h3 className="font-medium text-gray-800 truncate">
+              <h3 className="font-medium text-gray-800 truncate flex items-center gap-1">
+                {dirtyIds.has(note.id) && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
                 {note.title}
-                {dirtyIds.has(note.id) && <span className="text-xs text-orange-500 ml-1 shrink-0">Unsaved</span>}
               </h3>
               <p className="text-sm text-gray-500 truncate">{note.content}</p>
             </div>
