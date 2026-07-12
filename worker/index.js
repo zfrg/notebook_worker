@@ -1,4 +1,36 @@
 const SALT = "notebook-salt-2026";
+
+// ---- Auto-migration: runs on first D1 access ----
+const MIGRATIONS = [
+  `CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    createdAt INTEGER NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId INTEGER NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id)
+  )`,
+];
+
+let dbInitialized = false;
+
+async function ensureDB(db) {
+  if (dbInitialized) return;
+  for (const sql of MIGRATIONS) {
+    await db.prepare(sql).run();
+  }
+  dbInitialized = true;
+}
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -162,6 +194,7 @@ async function handleRequest(request, env) {
   }
 
   try {
+    if (env.DB) await ensureDB(env.DB);
     // Auth routes
     if (url.pathname === "/api/auth/register" && method === "POST") {
       if (env.ALLOW_REGISTRATION === "false") {
