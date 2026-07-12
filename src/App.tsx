@@ -230,7 +230,7 @@ const NotebookApp = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh pb-[env(safe-area-inset-bottom)] bg-gray-50">
       <div className={`w-full md:w-64 bg-white border-r border-gray-200 flex-col ${
         selectedNote ? 'hidden' : 'flex'
       } md:flex`}>
@@ -262,7 +262,7 @@ const NotebookApp = () => {
             <div className="p-4 text-center text-gray-400">No notes yet</div>
           )}
         </div>
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-gray-200">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600 truncate">{username}</span>
             <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 ml-2 shrink-0">
