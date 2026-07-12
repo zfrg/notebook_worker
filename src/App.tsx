@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Note {
   id: number;
@@ -26,6 +26,8 @@ const NotebookApp = () => {
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [dirtyIds, setDirtyIds] = useState<Set<number>>(new Set());
+  const dirtyRef = useRef(dirtyIds);
+  dirtyRef.current = dirtyIds;
   const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContent, setEditingContent] = useState("");
@@ -53,14 +55,14 @@ const NotebookApp = () => {
   }, [token, username]);
 
   useEffect(() => {
-    if (dirtyIds.size === 0) return;
     const handler = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current.size === 0) return;
       e.preventDefault();
       e.returnValue = "";
     };
     addEventListener("beforeunload", handler);
     return () => removeEventListener("beforeunload", handler);
-  }, [dirtyIds]);
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -230,7 +232,7 @@ const NotebookApp = () => {
   };
 
   return (
-    <div className="flex h-dvh pb-[env(safe-area-inset-bottom)] bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <div className={`w-full md:w-64 bg-white border-r border-gray-200 flex-col ${
         selectedNote ? 'hidden' : 'flex'
       } md:flex`}>
@@ -252,8 +254,8 @@ const NotebookApp = () => {
               }`}
             >
               <h3 className="font-medium text-gray-800 truncate flex items-center gap-1">
+                <span className="truncate">{note.title}</span>
                 {dirtyIds.has(note.id) && <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />}
-                {note.title}
               </h3>
               <p className="text-sm text-gray-500 truncate">{note.content}</p>
             </div>
@@ -262,7 +264,7 @@ const NotebookApp = () => {
             <div className="p-4 text-center text-gray-400">No notes yet</div>
           )}
         </div>
-        <div className="p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-gray-200">
+        <div className="p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-gray-200">
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600 truncate">{username}</span>
             <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 ml-2 shrink-0">
@@ -277,7 +279,7 @@ const NotebookApp = () => {
       } md:flex`}>
         {selectedNote ? (
           <>
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between gap-2">
+            <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
               <div className="flex items-center flex-1 min-w-0">
                 <button
                   onClick={() => setSelectedNoteId(null)}
@@ -290,11 +292,11 @@ const NotebookApp = () => {
                   value={editingTitle}
                   onChange={(e) => setEditingTitle(e.target.value)}
                   onBlur={() => updateNoteLocally(selectedNote.id, editingTitle, editingContent)}
-                  className="text-2xl font-bold text-gray-800 bg-transparent border-none outline-none flex-1 min-w-0"
+                  className="text-xl md:text-2xl font-bold text-gray-800 bg-transparent border-none outline-none flex-1 min-w-0"
                   placeholder="Note title"
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-end shrink-0">
                 <button onClick={saveNote} className="text-blue-500 hover:text-blue-700 transition-colors">
                   Save
                 </button>
@@ -303,7 +305,7 @@ const NotebookApp = () => {
                 </button>
               </div>
             </div>
-            <div className="flex-1 flex flex-col p-4 h-full">
+            <div className="flex-1 flex flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))] h-full">
               <textarea
                 value={editingContent}
                 onChange={(e) => setEditingContent(e.target.value)}
